@@ -1,0 +1,125 @@
+---
+title: "Uber"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(lubridate)
+library (readr) 
+library(dplyr)
+
+```
+Charger en R le fichier .csv
+
+```{r}
+
+april14 <- read_csv('C:/Users/KONLAMBIGUE DJOUMA/Documents/projet uber/uber-raw-data-apr14.csv')
+may14 <- read_csv('C:/Users/KONLAMBIGUE DJOUMA/Documents/projet uber/uber-raw-data-may14.csv')
+jun14 <- read_csv('C:/Users/KONLAMBIGUE DJOUMA/Documents/projet uber/uber-raw-data-jun14.csv')
+jul14 <- read_csv('C:/Users/KONLAMBIGUE DJOUMA/Documents/projet uber/uber-raw-data-jul14.csv')
+aug14 <- read_csv('C:/Users/KONLAMBIGUE DJOUMA/Documents/projet uber/uber-raw-data-aug14.csv')
+sep14 <- read_csv('C:/Users/KONLAMBIGUE DJOUMA/Documents/projet uber/uber-raw-data-sep14.csv')
+```
+connexion a la base de donnée Mysql sur 'RemoteMysql.com'
+
+```{r}
+#connexion a la base de donnée Mysql sur 'RemoteMysql.com'
+con <-dbConnect(RMySQL::MySQL(),
+                dbname ="VayTM5fyWs",
+                host = "remotemysql.com",
+                port =3306,
+                user = "VayTM5fyWs",
+                password = "zITpeq39J7"
+)
+```
+CREATION DE LA TABLE
+
+```{r}
+dbCreateTable(con, "april14",april14,encoding="UTF-8")
+dbCreateTable(con, "may14",may14,encoding="UTF-8")
+dbCreateTable(con, "jun14",jun14,encoding="UTF-8")
+dbCreateTable(con, "jul14",jul14,encoding="UTF-8")
+dbCreateTable(con, "aug14",aug14,encoding="UTF-8")
+dbCreateTable(con, "sep14",sep14,encoding="UTF-8")
+
+```
+INSERTION DE LA DONNE DANS LA BASE
+
+```{r}
+dbxInsert(con, "april14",april14)
+dbxInsert(con, "may14",may14)
+dbxInsert(con, "jun14",jun14)
+dbxInsert(con, "jul14",jul14)
+dbxInsert(con, "aug14",aug14)
+dbxInsert(con, "sep14",sep14)
+
+```
+
+lier tous les fichiers de données en un.
+
+```{r}
+
+uber14 <- dplyr::bind_rows(april14, may14, jun14, jul14, aug14,sep14)
+dbCreateTable(con, "uber14",uber14,encoding="UTF-8")
+#dbxInsert(con, "uber14",uber14)
+
+```
+verifier si on a des NA avant de préparer la donnée
+
+```{r}
+
+check_na <- function(df) {
+  # Calcul de nb de NA par Col  
+  # colSums plus rapide que apply & for;
+  nb_na_by_col <- colSums(is.na(uber14))
+  if (sum(nb_na_by_col)==0) {
+    print("Cool,Il n'y a pas de NA")
+  }
+  else {
+    # Recuperer le sous vecteur où nb_na_by_col > 0
+    (nb_pos_na_by_col<- nb_na_by_col[nb_na_by_col > 0])
+    Na_table <- data.frame(noms= names(nb_pos_na_by_col), NA_nombre =nb_pos_na_by_col, row.names = 1:length(nb_pos_na_by_col))
+    arrange(Na_table, desc(NA_nombre)) %>% View('Na_table')
+  }
+}
+
+check_na(NumData)
+```
+renommage colonne 'Date/Time' en dateTime
+
+```{r}
+
+uber14 <- dplyr::rename(uber14,dateTime='Date/Time')
+#dbxUpdate(con, "uber14",uber14)
+```
+Séparation de la colonne Date/Time en date
+
+```{r}
+
+uber14$dateTime <- lubridate::mdy_hms(uber14$dateTime)
+uber14
+
+uber14$Year <- lubridate::year(uber14$dateTime)
+uber14$Month <- lubridate::month(uber14$dateTime)
+uber14$Day <- lubridate::day(uber14$dateTime)
+uber14$Weekday <- lubridate::wday(uber14$dateTime)
+uber14$Hour <- lubridate::hour(uber14$dateTime)
+uber14$Minute <- lubridate::minute(uber14$dateTime)
+uber14$Second <- lubridate::second(uber14$dateTime)
+
+uber14
+```
+
+```{r}
+ library(ggplot2)
+ 
+ ggplot(uber14,
+        aes(x = Year,
+            y = Minute)) +
+  geom_miss_point()
+```
+
+
